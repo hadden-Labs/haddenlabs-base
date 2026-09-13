@@ -98,20 +98,33 @@ Després, `node proves/permisos.js`.
 
 ---
 
-## Les quatre regles que no es poden trencar
+## Quatre coses que no són opinió
+
+La resta d'aquest fitxer és una proposta i s'adapta. Aquestes quatre no, i no
+per rigidesa: **tres són fets de la plataforma i una és un número**. No estan en
+discussió perquè no depenen del criteri de ningú.
+
 
 1. **`_comprovarAcces_` a la primera línia.** Amagar un botó no és seguretat.
    I el rol sol no n'hi ha prou: de qui és *aquella fila* ho decideix el
    servei (mira `_potGestionarExemple_`).
 2. **Qui escriu al full sense passar per `_actualitzar_`/`_afegirAmbId_` ha de
    cridar `_invalidarCauFulla_(nom)`.** Si no, la mateixa execució seguirà
-   veient dades velles. Els punts es troben amb
+   veient dades velles. (Aquesta depèn de la memòria de lectura de `SheetDB`:
+   si algun dia la treus, la regla se'n va amb ella.) Els punts es troben amb
    `grep -nE "\.(setValues?|deleteRows?|appendRow|clearContent)" src/*.js`.
 3. **Res que canviï el full s'executa sol.** Ni les `activarX()` ni
    `aplicarPermisosPerDefecte()`. En tancar la sessió, **dir-ho**.
 4. **Una superfície amb text blanc surt de `--marca-sup`, mai de `--marca`**,
-   que en mode fosc s'aclareix. I `Base.html` no s'edita aquí dins: es canvia
-   a `haddenlabs-estil` i es torna a sincronitzar.
+   que en mode fosc s'aclareix. Això ho diu `verifica.js` amb un número, no
+   una opinió sobre el gust.
+
+I una cinquena que **sí** és una decisió nostra, no un fet, però que val la
+pena mantenir mentre l'esquelet i els projectes comparteixin el sistema visual:
+`Base.html` no s'edita aquí dins. Es canvia a `haddenlabs-estil` i es torna a
+sincronitzar. El dia que un projecte necessiti un component que allà no encaixa,
+que se'l faci al seu `Styles.html` i **ho escrigui** — això és un límit del
+sistema visual i va al catàleg.
 
 ---
 
