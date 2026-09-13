@@ -77,6 +77,16 @@ fotos, accés, migracions, rendiment): mirar \`CATALOGO.md\`.
 alguna cosa que *tornaries a escriure de zero si demà la necessités un altre
 projecte*, afegeix-hi una fitxa. Si és específic d'aquest projecte, va aquí.
 
+**Res d'això és obligatori.** El catàleg diu «això existeix i funciona així»,
+no «fes-ho així», i el codi d'aquest projecte ja és teu: si l'estructura de
+l'esquelet no encaixa aquí, **adapta-la**. L'única cosa que es demana a canvi
+és **escriure per què**, en aquest mateix fitxer — sense el motiu, la sessió
+següent veurà una desviació sense sentit i l'«arreglarà» cap a l'estàndard.
+
+I si l'estàndard no encaixava, **això també s'anota** al catàleg («Dónde el
+estándar no encajó»): val més que una fitxa d'una cosa que sí va funcionar,
+perquè marca fins on arriba.
+
 ## Nivell
 
 (Una frase: quants usuaris, què passa si cau un dia, si hi ha dades personals
