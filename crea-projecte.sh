@@ -48,12 +48,16 @@ node_modules/
 proves/previsualitza.html
 EOF
 
+# Heredoc SENSE cometes: expandeix variables, que és el que volem per a
+# $NOM. Per això qualsevol $ALTRA_COSA que hagi de sortir LITERAL al fitxer
+# va escapada (\$). Sense escapar, \$CLASPRC_B64 hi escriuria la credencial
+# OAuth de debò, i el CLAUDE.md es commiteja.
 cat > "$DESTI/CLAUDE.md" <<EOF
 # $NOM
 
 (Descriu aquí què fa l'app i per a qui, en tres línies.)
 
-Nascuda de l'esquelet \`BestPractises/base\`.
+Nascuda de l'esquelet \`haddenlabs-base\`.
 
 ## Recursos compartits de haddenLABs
 
@@ -89,6 +93,24 @@ Acabat de crear. Encara no desplegat.
    **Apunta la contrasenya que surt al registre: no torna a sortir.**
 2. \`activarExemple()\` — crea la fulla del mòdul d'exemple.
 
+## Configuració de clasp
+
+- \`scriptId\`: l'omple \`clasp create\`, a \`.clasp.json\` (que NO es commiteja).
+- \`rootDir\`: \`src\`.
+- **Desplegament de producció**: (apunta l'id aquí després del primer
+  \`clasp deploy\`, i també l'URL de l'app. Si no, d'aquí a sis mesos no se sap
+  quin dels desplegaments és el que fa servir la gent.)
+
+En entorns remots hi sol haver una credencial OAuth a la variable d'entorn
+\`CLASPRC_B64\` (base64 d'un \`.clasprc.json\`). Abans d'usar \`clasp\`:
+
+\`\`\`bash
+echo "\$CLASPRC_B64" | base64 -d > ~/.clasprc.json
+\`\`\`
+
+**Mai commitejar \`.clasprc.json\`**: porta els tokens OAuth del compte de
+Google propietari de l'script. Ja és al \`.gitignore\`.
+
 ## Publicar un canvi
 
 \`\`\`bash
@@ -108,6 +130,21 @@ node proves/previsualitza.js && open proves/previsualitza.html   # als DOS modes
 node ../haddenlabs-estil/verifica.js src/Marca.html src/Styles.html
 \`\`\`
 EOF
+
+# Xarxa de seguretat: cap secret de l'entorn pot haver acabat dins del projecte.
+# El CLAUDE.md es genera amb un heredoc que expandeix variables i es commiteja,
+# així que un $ sense escapar hi escriuria la credencial de debò. Això ho atura
+# abans que ningú faci el primer commit.
+for VAR in CLASPRC_B64 GITHUB_TOKEN GH_TOKEN; do
+  VAL="$(printenv "$VAR" || true)"
+  [ -n "$VAL" ] && [ ${#VAL} -gt 12 ] || continue
+  if grep -rqF "$VAL" "$DESTI" 2>/dev/null; then
+    echo "  ATURAT: el valor de \$$VAR ha acabat dins de $DESTI."
+    echo "  Revisa els heredocs de $0: el que ha de sortir literal va escapat (\\\$)."
+    rm -rf "$DESTI"
+    exit 1
+  fi
+done
 
 echo
 echo "  Projecte creat a $DESTI"
