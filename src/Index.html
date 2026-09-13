@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="ca">
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <meta name="color-scheme" content="light dark">
+  <?!= include('Marca');  ?>   <!-- els valors: generat, no s'edita -->
+  <?!= include('Base');   ?>   <!-- els components: sincronitzat, no s'edita -->
+  <?!= include('Styles'); ?>   <!-- el que és propi d'aquest projecte -->
+</head>
+<body>
+  <div id="carregant" class="carregant">Carregant…</div>
+
+  <!-- Entrada (login, PIN, recuperació). Centrat i amb el fons decorat. -->
+  <div class="contenidor" id="vistaAuth">
+    <?!= include('Login'); ?>
+  </div>
+
+  <!-- L'app: barra a dalt, contingut, i els mòduls a baix. -->
+  <div class="app-shell" id="vistaApp" style="display:none;">
+    <header class="app-bar">
+      <div class="app-marca">
+        <span class="escut" id="escutApp"></span>
+        <div class="app-tit">
+          <div class="nom-club" id="nomClub"></div>
+          <div class="benvinguda" id="benvinguda"></div>
+        </div>
+      </div>
+      <button class="btn-sortir" id="btnSortir" type="button">
+        <span id="rolUsuari" hidden></span>Surt
+      </button>
+    </header>
+    <main class="contingut" id="contingut"></main>
+    <nav class="tabbar" id="menu"></nav>
+  </div>
+
+  <!-- Nucli compartit de client -->
+  <script>
+    window.App = (function(){
+      var CLAU_TOKEN = 'app_token';
+      var moduls = {};
+      var _logout = null;
+      var _sincronitzarNav = null;
+
+      function el(id){ return document.getElementById(id); }
+      function getToken(){ try{return localStorage.getItem(CLAU_TOKEN)||'';}catch(e){return '';} }
+      function setContingut(html){ el('contingut').innerHTML = html; }
+      function contingutEl(){ return el('contingut'); }
+
+      /** Escapa text abans d'inserir-lo a l'HTML. Tot el que ve del servidor
+       *  hi ha de passar: els noms i les notes els escriuen les famílies. */
+      function esc(s){
+        return String(s==null?'':s).replace(/[&<>"]/g,function(c){
+          return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];
+        });
+      }
+      /** Una hora sempre com a 'HH:MM', encara que arribi com a Date.
+       *  google.script.run reconstrueix els Date del servidor com a Date de
+       *  debò al navegador, i String() d'un valor d'hora de Google Sheets dona
+       *  "Sat Dec 30 1899 20:15:00 GMT-0014 …". El servidor ja ho normalitza
+       *  (_horaTxt_), però això és la segona barrera: el que es veu a la
+       *  pantalla no ha de dependre que no se n'escapi cap. */
+      function hora(v){
+        if(v===null || v===undefined || v==='') return '';
+        var s = (v && typeof v.getTime === 'function')
+          ? v.toTimeString().slice(0,5)     // 'HH:MM' en hora local del Date
+          : String(v);
+        var m = s.match(/^(\d{1,2}):(\d{2})/) || s.match(/\b(\d{1,2}):(\d{2}):\d{2}\b/);
+        if(!m) return esc(s);
+        return (m[1].length<2?'0':'')+m[1]+':'+m[2];
+      }
+
+      /** Icones: traç, 24x24, hereten el color del text.
+       *  Són dibuixades i no emojis perquè els emojis els pinta cada sistema a
+       *  la seva manera (i a Android no s'assemblen gens als d'iPhone). */
+      var TRACOS = {
+        casa:     '<path d="M3.8 10.4 12 4l8.2 6.4v9a1.4 1.4 0 0 1-1.4 1.4H5.2a1.4 1.4 0 0 1-1.4-1.4z"/><path d="M9.4 20.8v-6.6h5.2v6.6"/>',
+        llista:   '<path d="M8.5 6.5h12M8.5 12h12M8.5 17.5h12"/><circle cx="4.5" cy="6.5" r="1.1" fill="currentColor" stroke="none"/><circle cx="4.5" cy="12" r="1.1" fill="currentColor" stroke="none"/><circle cx="4.5" cy="17.5" r="1.1" fill="currentColor" stroke="none"/>',
+        persones: '<path d="M15.5 20.5v-1.8a3.6 3.6 0 0 0-3.6-3.6H7a3.6 3.6 0 0 0-3.6 3.6v1.8"/><circle cx="9.4" cy="7.6" r="3.4"/><path d="M20.6 20.5v-1.8a3.6 3.6 0 0 0-2.7-3.5M16.2 4.4a3.4 3.4 0 0 1 0 6.5"/>',
+        calendari:'<rect x="3.5" y="5.2" width="17" height="15.3" rx="3"/><path d="M8 3.2v3.8M16 3.2v3.8M3.5 10.2h17"/>',
+        rellotge: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.2V12l3.1 1.9"/>',
+        lloc:     '<path d="M12 21.2s6.6-5.9 6.6-10.4a6.6 6.6 0 1 0-13.2 0C5.4 15.3 12 21.2 12 21.2z"/><circle cx="12" cy="10.5" r="2.5"/>',
+        mapa:     '<path d="M3.5 6.6 9 4.4l6 2.2 5.5-2.2v13l-5.5 2.2-6-2.2-5.5 2.2z"/><path d="M9 4.4v13M15 6.6v13"/>',
+        grafic:   '<path d="M4 20.5h16"/><path d="M7 17V11M12 17V5.5M17 17v-8"/>',
+        engranatge:'<circle cx="12" cy="12" r="3.2"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.9 2.9l-.1-.1a1.7 1.7 0 0 0-2.9 1.2v.2a2 2 0 0 1-4 0v-.1a1.7 1.7 0 0 0-3-1.3l-.1.1a2 2 0 1 1-2.9-2.9l.1-.1a1.7 1.7 0 0 0-1.2-2.9H3a2 2 0 0 1 0-4h.1A1.7 1.7 0 0 0 4.5 7l-.1-.1a2 2 0 1 1 2.9-2.9l.1.1a1.7 1.7 0 0 0 2.9-1.2V2.8a2 2 0 0 1 4 0v.1a1.7 1.7 0 0 0 2.9 1.2l.1-.1a2 2 0 1 1 2.9 2.9l-.1.1a1.7 1.7 0 0 0 1.2 2.9h.2a2 2 0 0 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>',
+        alerta:   '<path d="M12 3.6 21.2 20H2.8z"/><path d="M12 9.4v4.6"/><circle cx="12" cy="17" r=".9" fill="currentColor" stroke="none"/>',
+        fletxa:   '<path d="M9 5.5 15.5 12 9 18.5"/>',
+        esquerra: '<path d="M15 5.5 8.5 12 15 18.5"/>',
+        surt:     '<path d="M14.5 17.5 20 12l-5.5-5.5"/><path d="M20 12H9.2"/><path d="M12 4.5H6.5a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2H12"/>',
+        ok:       '<path d="M4.5 12.6 9.4 17.5 19.5 7"/>',
+        buida:    '<rect x="3.5" y="5.2" width="17" height="15.3" rx="3"/><path d="M8 3.2v3.8M16 3.2v3.8M3.5 10.2h17M9.5 14.5h5"/>'
+      };
+      function ico(nom, mida){
+        var d = TRACOS[nom]; if(!d) return '';
+        var m = mida ? ' style="width:'+mida+'px;height:'+mida+'px"' : '';
+        return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" '+
+               'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"'+m+'>'+d+'</svg>';
+      }
+
+      /** Forma del que està a punt d'arribar, mentre el servidor respon. */
+      function esquelet(n, mida){
+        var h = '';
+        for(var i=0;i<(n||3);i++) h += '<div class="skel'+(mida?' '+mida:'')+'"></div>';
+        return h;
+      }
+      /** Estat buit amb icona: una llista buida ha d'explicar què fer-hi. */
+      function buit(text, icona){
+        return '<div class="buit">'+ico(icona||'buida')+esc(text)+'</div>';
+      }
+
+      function badge(txt,color){
+        return '<span class="badge" style="background:'+esc(color||'#6b7280')+'">'+esc(txt)+'</span>';
+      }
+      function opcions(items, sel, buitTxt){
+        var h = (buitTxt!=null) ? '<option value="">'+esc(buitTxt)+'</option>' : '';
+        (items||[]).forEach(function(it){
+          h += '<option value="'+esc(it.id)+'"'+(String(sel)===String(it.id)?' selected':'')+'>'+esc(it.nom)+'</option>';
+        });
+        return h;
+      }
+
+      /** Crida al servidor passant sempre el token com a primer argument. */
+      function crida(nom, args, onOk, onErr){
+        var runner = google.script.run
+          .withSuccessHandler(function(res){ if(onOk) onOk(res); })
+          .withFailureHandler(function(err){
+            var msg = (err && err.message) ? err.message : String(err||'Error');
+            if(/Sessió no vàlida|caducada/i.test(msg)){ if(_logout) _logout(); return; }
+            if(onErr) onErr(msg);
+          });
+        runner[nom].apply(runner, [getToken()].concat(args||[]));
+      }
+
+      /**
+       * Dades que un mòdul ja té servides abans de renderitzar-se, perquè han
+       * vingut dins de la crida d'entrada. S'agafen UN cop: a partir d'aquí el
+       * mòdul torna a demanar-les, que si no ensenyaria dades velles.
+       */
+      var precarrega = {};
+      function setPrecarrega(clau, dades){ precarrega[clau] = dades; }
+      function agafarPrecarrega(clau){
+        var d = precarrega[clau];
+        delete precarrega[clau];
+        return d;
+      }
+
+      function registrarModul(clau, obj){ moduls[clau] = obj; }
+      /** True si aquest mòdul existeix de debò al client (s'ha registrat). */
+      function teModul(clau){ return !!moduls[clau]; }
+      function obrirModul(clau, ops){
+        var m = moduls[clau];
+        if(m && typeof m.render==='function'){ m.render(contingutEl(), ops); }
+        else { setContingut('<h2>'+esc(clau)+'</h2><p class="petit">Mòdul pendent de construir.</p>'); }
+        if(_sincronitzarNav) _sincronitzarNav(clau);
+        window.scrollTo(0,0);
+      }
+      function setLogout(fn){ _logout = fn; }
+      function setNavegacio(fn){ _sincronitzarNav = fn; }
+
+      return { getToken:getToken, crida:crida, setContingut:setContingut,
+               contingutEl:contingutEl, registrarModul:registrarModul,
+               obrirModul:obrirModul, teModul:teModul,
+               setPrecarrega:setPrecarrega, agafarPrecarrega:agafarPrecarrega,
+               setLogout:setLogout, setNavegacio:setNavegacio,
+               esc:esc, badge:badge, opcions:opcions, hora:hora,
+               ico:ico, esquelet:esquelet, buit:buit };
+    })();
+  </script>
+
+  <!-- Mòduls (es registren a App) -->
+  <?!= include('Exemple'); ?>
+
+  <!-- Login, menú i cicle de sessió -->
+  <script>
+    (function(){
+      var $ = function(id){ return document.getElementById(id); };
+      var CLAU_TOKEN = 'app_token';
+      // La columna `icona` de MENUS ja porta directament el nom d'un traç de
+      // TRACOS. Si un dia el full diu un nom que no existeix, es cau a 'casa'
+      // en comptes de deixar el botó sense dibuix.
+      var ICONES = {};
+      var TOKEN_RESET = <?!= JSON.stringify(resetToken) ?>;
+
+
+      function mostrar(v){
+        var esApp = (v==='app');
+        $('vistaAuth').style.display = esApp ? 'none' : 'flex';
+        $('vistaApp').style.display  = esApp ? 'block' : 'none';
+        document.body.classList.toggle('en-app', esApp);
+        $('vistaLogin').style.display=(v==='login')?'block':'none';
+        $('vistaRecuperar').style.display=(v==='recuperar')?'block':'none';
+        $('vistaNovaContrasenya').style.display=(v==='novaContrasenya')?'block':'none';
+      }
+      function carregant(a){ $('carregant').style.display=a?'flex':'none'; }
+      function desarToken(t){ try{localStorage.setItem(CLAU_TOKEN,t);}catch(e){} }
+      function esborrarToken(){ try{localStorage.removeItem(CLAU_TOKEN);}catch(e){} }
+      function obtenirToken(){ try{return localStorage.getItem(CLAU_TOKEN)||'';}catch(e){return '';} }
+
+      function inici(){
+        if(TOKEN_RESET){
+          carregant(true);
+          google.script.run
+            .withSuccessHandler(function(res){
+              carregant(false);
+              if(res&&res.ok){ mostrar('novaContrasenya'); }
+              else { mostrar('login'); $('errLogin').textContent=(res&&res.error)?res.error:'Enllaç no vàlid.'; }
+            })
+            .withFailureHandler(function(){ carregant(false); mostrar('login'); $('errLogin').textContent='Error de connexió.'; })
+            .validarTokenRestabliment(TOKEN_RESET);
+          return;
+        }
+        var token = obtenirToken();
+        if(!token){ mostrarEntrada(); return; }
+        google.script.run
+          .withSuccessHandler(function(ctx){
+            if(ctx&&ctx.ok){ carregant(false); entrarApp(ctx); }
+            else { esborrarToken(); mostrarEntrada(); }
+          })
+          .withFailureHandler(function(){ esborrarToken(); mostrarEntrada(); })
+          .obtenirContextInicial(token);
+      }
+
+      /** Només hi ha una pantalla d'entrada: correu i contrasenya. */
+      function mostrarEntrada(){
+        carregant(false);
+        mostrar('login');
+      }
+
+      function entrarApp(ctx){
+        // El context d'entrada ja porta el que necessita la pantalla d'arribada.
+        // _dadesInicials_ (servidor) retorna {modul, dades}: així la crida
+        // d'entrada pot portar ja el que necessita la primera pantalla sense
+        // que aquest fitxer sàpiga quin mòdul és.
+        if(ctx.inici && ctx.inici.modul) App.setPrecarrega(ctx.inici.modul, ctx.inici.dades);
+        var u = ctx.usuari||{};
+        // Només el nom de pila: a la barra hi ha d'haver aire, i "Hola, Maria
+        // del Carme Puig i Ferrer" no hi cap en un mòbil.
+        $('benvinguda').textContent = 'Hola, '+(u.nom||'');
+        $('rolUsuari').textContent = u.rol||'';
+        $('escutApp').innerHTML = App.ico('casa');
+        var cfg = ctx.config||{};
+        $('nomClub').textContent = cfg.nom||'';
+        // La fulla MENUS diu què s'HAURIA de veure, però qui sap què existeix
+        // de debò és el client. Una fila que apunti a un mòdul que ja no hi és
+        // —perquè s'ha eliminat, o perquè la clau està mal escrita— donava un
+        // botó que en clicar-lo deia "Mòdul pendent de construir". Es filtra
+        // aquí perquè el full no pugui ensenyar mai una porta que no obre.
+        var menu = (ctx.menu||[]).filter(function(m){ return App.teModul(m.clau); });
+        pintarMenu(menu);
+        mostrar('app');
+        // S'aterra al primer mòdul del menú, que és el de menys `ordre` a la
+        // fulla MENUS. Així la pantalla d'arribada es tria des del full i no
+        // des del codi: cap clau de mòdul escrita aquí dins.
+        if(menu.length){
+          App.obrirModul(menu[0].clau);
+        } else {
+          App.setContingut('<h2>Benvingut/da</h2><p class="petit">Encara no tens cap mòdul assignat. Parla amb qui administra l\'aplicació.</p>');
+        }
+      }
+
+      function pintarMenu(menu){
+        var cont=$('menu'); cont.innerHTML=''; cont.style.display='';
+        // Sense cap mòdul no hi ha barra: el missatge ja surt al contingut.
+        if(!menu.length){ cont.style.display='none'; document.body.classList.add('sense-tabs'); return; }
+        // Amb un sol mòdul, una barra de navegació d'un botó només fa nosa: ja
+        // hi ets. Els botons es creen igual perquè App.setNavegacio els pugui
+        // marcar, però la barra no es veu i el contingut recupera el marge.
+        var sol = (menu.length===1);
+        cont.style.display = sol ? 'none' : '';
+        document.body.classList.toggle('sense-tabs', sol);
+        menu.forEach(function(m){
+          var b=document.createElement('button'); b.type='button';
+          b.setAttribute('data-clau', m.clau);
+          b.innerHTML = '<span class="ico">'+App.ico(ICONES[m.icona]||'casa')+'</span>'+
+                        '<span class="et">'+App.esc(m.etiqueta)+'</span>';
+          b.addEventListener('click', function(){ App.obrirModul(m.clau); });
+          cont.appendChild(b);
+        });
+      }
+
+      function activar(boto){
+        var bs=$('menu').querySelectorAll('button');
+        for(var i=0;i<bs.length;i++) bs[i].classList.remove('actiu');
+        boto.classList.add('actiu');
+      }
+
+      function entrar(){
+        var usuari=$('inpUsuari').value, contrasenya=$('inpContrasenya').value;
+        $('errLogin').textContent=''; $('okLogin').textContent='';
+        if(!usuari||!contrasenya){ $('errLogin').textContent='Cal indicar el correu i la contrasenya.'; return; }
+        $('btnEntrar').disabled=true; carregant(true);
+        google.script.run
+          .withSuccessHandler(function(res){
+            if(res&&res.ok){
+              desarToken(res.token); $('inpContrasenya').value='';
+              google.script.run
+                .withSuccessHandler(function(ctx){
+                  carregant(false); $('btnEntrar').disabled=false;
+                  if(ctx&&ctx.ok){entrarApp(ctx);} else {$('errLogin').textContent='No s\'ha pogut carregar el menú.';}
+                })
+                .withFailureHandler(function(){ carregant(false); $('btnEntrar').disabled=false; $('errLogin').textContent='Error de connexió.'; })
+                .obtenirContextInicial(res.token);
+            } else {
+              carregant(false); $('btnEntrar').disabled=false;
+              $('errLogin').textContent=(res&&res.error)?res.error:'No s\'ha pogut iniciar sessió.';
+            }
+          })
+          .withFailureHandler(function(){ carregant(false); $('btnEntrar').disabled=false; $('errLogin').textContent='Error de connexió. Torna-ho a provar.'; })
+          .ferLogin(usuari, contrasenya);
+      }
+
+      function enviarRecuperar(){
+        var email = $('inpRecuperarEmail').value;
+        $('errRecuperar').textContent=''; $('okRecuperar').textContent='';
+        if(!email){ $('errRecuperar').textContent='Cal indicar el correu electrònic.'; return; }
+        $('btnEnviarRecuperar').disabled=true; carregant(true);
+        google.script.run
+          .withSuccessHandler(function(res){
+            carregant(false); $('btnEnviarRecuperar').disabled=false;
+            if(res&&res.ok){ $('okRecuperar').textContent=res.missatge||'Revisa el teu correu electrònic.'; }
+            else { $('errRecuperar').textContent=(res&&res.error)?res.error:'No s\'ha pogut processar la sol·licitud.'; }
+          })
+          .withFailureHandler(function(){ carregant(false); $('btnEnviarRecuperar').disabled=false; $('errRecuperar').textContent='Error de connexió.'; })
+          .demanarRestabliment(email);
+      }
+
+      function desarNovaContrasenya(){
+        var p1 = $('inpNovaContrasenya1').value, p2 = $('inpNovaContrasenya2').value;
+        $('errNovaContrasenya').textContent='';
+        if(!p1||!p2){ $('errNovaContrasenya').textContent='Omple els dos camps.'; return; }
+        if(p1!==p2){ $('errNovaContrasenya').textContent='Les contrasenyes no coincideixen.'; return; }
+        $('btnDesarNovaContrasenya').disabled=true; carregant(true);
+        google.script.run
+          .withSuccessHandler(function(res){
+            carregant(false); $('btnDesarNovaContrasenya').disabled=false;
+            if(res&&res.ok){
+              TOKEN_RESET='';
+              $('inpNovaContrasenya1').value=''; $('inpNovaContrasenya2').value='';
+              $('okLogin').textContent='Contrasenya actualitzada. Ja pots iniciar sessió.';
+              mostrar('login');
+            } else {
+              $('errNovaContrasenya').textContent=(res&&res.error)?res.error:'No s\'ha pogut desar la contrasenya.';
+            }
+          })
+          .withFailureHandler(function(){ carregant(false); $('btnDesarNovaContrasenya').disabled=false; $('errNovaContrasenya').textContent='Error de connexió.'; })
+          .restablirContrasenyaAmbToken(TOKEN_RESET, p1);
+      }
+
+      function sortir(){
+        var token=obtenirToken(); esborrarToken();
+        $('inpUsuari').value=''; $('inpContrasenya').value='';
+        if(token){ google.script.run.ferLogout(token); }
+        mostrarEntrada();   // torna a la pantalla que toqui segons el mode
+      }
+
+      /** El menú ha de quedar marcat també quan s'hi arriba per codi
+       *  (p. ex. tocant un avís que porta a un altre mòdul). */
+      App.setNavegacio(function(clau){
+        var boto = document.querySelector('#menu button[data-clau="'+clau+'"]');
+        if(boto) activar(boto);
+      });
+      App.setLogout(function(){ sortir(); });
+
+      document.addEventListener('DOMContentLoaded', function(){
+        Array.prototype.forEach.call(document.querySelectorAll('.escut-gran'), function(x){
+          x.innerHTML = App.ico('casa');
+        });
+        $('btnSortir').insertAdjacentHTML('afterbegin', App.ico('surt'));
+        $('btnEntrar').addEventListener('click', entrar);
+        $('btnSortir').addEventListener('click', sortir);
+        $('inpContrasenya').addEventListener('keydown', function(e){ if(e.key==='Enter') entrar(); });
+        $('inpUsuari').addEventListener('keydown', function(e){ if(e.key==='Enter') $('inpContrasenya').focus(); });
+
+        $('btnAnarRecuperar').addEventListener('click', function(){
+          $('errLogin').textContent=''; $('okLogin').textContent='';
+          $('errRecuperar').textContent=''; $('okRecuperar').textContent='';
+          $('inpRecuperarEmail').value = $('inpUsuari').value || '';
+          mostrar('recuperar');
+        });
+        $('btnTornarLogin1').addEventListener('click', function(){ mostrar('login'); });
+        $('btnTornarLogin2').addEventListener('click', function(){ mostrar('login'); });
+        $('btnEnviarRecuperar').addEventListener('click', enviarRecuperar);
+        $('inpRecuperarEmail').addEventListener('keydown', function(e){ if(e.key==='Enter') enviarRecuperar(); });
+        $('btnDesarNovaContrasenya').addEventListener('click', desarNovaContrasenya);
+        $('inpNovaContrasenya2').addEventListener('keydown', function(e){ if(e.key==='Enter') desarNovaContrasenya(); });
+
+        inici();
+      });
+    })();
+  </script>
+</body>
+</html>

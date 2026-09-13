@@ -1,0 +1,68 @@
+<!-- =========================================================================
+     Styles.html — el que és propi d'AQUEST projecte.
+
+     Ordre a Index.html: Marca (generat) → Base (sincronitzat) → Styles (aquí).
+     Els dos primers NO s'editen: Marca es torna a generar i Base es torna a
+     sincronitzar des de haddenlabs-estil. Si els edites aquí dins, el mateix
+     defecte s'haurà d'arreglar dues vegades — que és exactament el problema
+     que va fer néixer aquell repositori.
+
+     Regla que no es pot trencar: una superfície amb text blanc a sobre surt de
+     --marca-sup, MAI de --marca (que en mode fosc s'aclareix). I abans de
+     desplegar cap canvi de color:
+
+         node ../haddenlabs-estil/verifica.js src/Marca.html src/Styles.html
+     ========================================================================= -->
+<style>
+  /* --- mides i tipografia ---
+     Els colors surten de Marca.html; això no, perquè no depèn del to i és
+     igual a tots els projectes. Viu aquí perquè l'esquema el demana al
+     projecte, no al generador. */
+  :root {
+    --r-s:10px; --r-m:14px; --r-l:18px; --r-xl:24px;
+    --tipus:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;
+  }
+  body { margin:0; font-family:var(--tipus); }
+
+  /* --- barra superior: marca, qui ets, i sortir --- */
+  .app-marca { display:flex; align-items:center; gap:10px; min-width:0; }
+  .app-tit   { min-width:0; }
+  .nom-club  { font-weight:700; font-size:15px; line-height:1.2;
+               white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+  .btn-sortir {
+    display:inline-flex; align-items:center; gap:6px; flex:none;
+    background:transparent; color:inherit;
+    border:1px solid currentColor; border-radius:999px;
+    padding:6px 12px; font-size:13px; font-weight:600; cursor:pointer;
+  }
+  .btn-sortir span { opacity:.75; font-weight:500; }
+
+  /* --- barra inferior de mòduls --- */
+  .tabbar .ico { display:block; }
+  .tabbar .ico svg { width:22px; height:22px; }
+  .tabbar .et { display:block; font-size:11px; line-height:1.1; }
+
+  /* --- fila de llista amb acció a la dreta --- */
+  .fila {
+    display:flex; align-items:center; gap:12px;
+    padding:12px 14px;
+    background:var(--sup); border:1px solid var(--vora); border-radius:12px;
+    box-shadow:var(--ombra-1);
+  }
+  .fila + .fila { margin-top:8px; }
+  .fila-cos { flex:1; min-width:0; }
+  .fila-tit {
+    font-weight:600;
+    /* Un títol llarg parteix la fila en dues i desmunta la llista al mòbil. */
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+
+  /* .btn-link de Base.html porta width:100% perquè està pensat per anar sota
+     un formulari, ocupant tota l'amplada. Dins d'una fila flex això se'ls menja
+     tot i deixa .fila-cos a 0px: el títol hi és al DOM i no es veu.
+     Es corregeix AQUÍ i no tocant Base.html, que és compartit. La regla va
+     escrita amb el pare al davant per guanyar en especificitat (0,2,0 contra
+     0,1,0) sense haver de dependre de l'ordre dels fitxers. */
+  .fila .btn-link { width:auto; flex:none; margin-top:0; padding:8px 2px; }
+</style>

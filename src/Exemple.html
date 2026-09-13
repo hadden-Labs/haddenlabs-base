@@ -1,0 +1,101 @@
+<!-- =========================================================================
+     Exemple.html — la vista del mòdul d'exemple.
+
+     El patró: un IIFE que es registra a App i exposa render(). Tot el que
+     necessita del servidor passa per App.crida(), que ja hi posa el token i
+     se'n va al login sol si la sessió ha caducat.
+     ========================================================================= -->
+<script>
+(function () {
+  var CLAU = 'EXEMPLE';
+
+  function render(cont, ops) {
+    // Si l'arrencada ja ens ha portat les dades, es pinten sense esperar res.
+    // S'agafen UN cop: a partir d'aquí es tornen a demanar, que si no
+    // ensenyaríem dades velles en tornar a entrar al mòdul.
+    var precarregat = App.agafarPrecarrega(CLAU);
+    if (precarregat) { pintar(cont, precarregat.items || []); return; }
+
+    // Mentre el servidor respon es pinta la FORMA del que arribarà, no la
+    // paraula "Carregant": Apps Script triga prou perquè una pantalla buida
+    // sembli espatllada.
+    cont.innerHTML = '<h2>Exemple</h2>' + App.esquelet(3);
+
+    App.crida('llistarExemples', [], function (res) {
+      if (!res || !res.ok) { error(cont, 'No s\'ha pogut carregar.'); return; }
+      pintar(cont, res.items);
+    }, function (msg) { error(cont, msg); });
+  }
+
+  function pintar(cont, items) {
+    var h = '<h2>Exemple</h2>';
+
+    h += '<div class="card">' +
+         '<label class="camp"><span>Títol</span>' +
+         '<input type="text" id="exTitol" maxlength="120"></label>' +
+         '<div class="error" id="exErr"></div>' +
+         '<button class="btn" id="exAfegir" type="button">Afegeix</button>' +
+         '</div>';
+
+    if (!items.length) {
+      h += App.buit('Encara no hi ha res. Afegeix el primer element.', 'llista');
+    } else {
+      h += '<div class="llista">';
+      items.forEach(function (it) {
+        h += '<div class="fila">' +
+             '<div class="fila-cos">' +
+             '<div class="fila-tit">' + App.esc(it.titol) + '</div>' +
+             '<div class="petit">' + App.esc(it.creat) + '</div>' +
+             '</div>' +
+             '<button class="btn-link" data-esborra="' + App.esc(it.id) + '" type="button">Esborra</button>' +
+             '</div>';
+      });
+      h += '</div>';
+    }
+
+    cont.innerHTML = h;
+
+    document.getElementById('exAfegir').addEventListener('click', function () {
+      afegir(cont, this);
+    });
+    var bs = cont.querySelectorAll('[data-esborra]');
+    for (var i = 0; i < bs.length; i++) {
+      bs[i].addEventListener('click', function () {
+        esborrar(cont, this.getAttribute('data-esborra'), this);
+      });
+    }
+  }
+
+  function afegir(cont, boto) {
+    var titol = String(document.getElementById('exTitol').value || '').trim();
+    var err = document.getElementById('exErr');
+    err.textContent = '';
+    if (!titol) { err.textContent = 'Posa-hi un títol.'; return; }
+
+    // Desactivar el botó mentre hi som no és cosmètica: a Apps Script la
+    // resposta triga prou perquè algú cliqui dues vegades i es creïn dos
+    // registres. El servidor no ho pot distingir de dues altes de debò.
+    boto.disabled = true;
+    App.crida('crearExemple', [{ titol: titol }], function (res) {
+      boto.disabled = false;
+      if (!res || !res.ok) { err.textContent = (res && res.error) || 'No s\'ha pogut desar.'; return; }
+      pintar(cont, res.items);
+    }, function (msg) { boto.disabled = false; err.textContent = msg; });
+  }
+
+  function esborrar(cont, id, boto) {
+    if (!window.confirm('Segur que vols esborrar-ho?')) return;
+    boto.disabled = true;
+    App.crida('esborrarExemple', [id], function (res) {
+      if (!res || !res.ok) { boto.disabled = false; alert((res && res.error) || 'No s\'ha pogut esborrar.'); return; }
+      pintar(cont, res.items);
+    }, function (msg) { boto.disabled = false; alert(msg); });
+  }
+
+  function error(cont, msg) {
+    cont.innerHTML = '<h2>Exemple</h2><div class="error">' + App.esc(msg) + '</div>';
+  }
+
+  App.registrarModul(CLAU, { render: render });
+})();
+</script>

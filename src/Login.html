@@ -1,0 +1,55 @@
+<div class="card" id="vistaLogin" style="display:none;">
+  <div class="escut-gran"></div>
+  <h1 class="titol" id="titolLogin">La meva app</h1>
+  <p class="subtitol" id="subtitolLogin"></p>
+
+  <label class="camp">
+    <span>Correu electrònic</span>
+    <input type="email" id="inpUsuari" autocomplete="username"
+           autocapitalize="none" autocorrect="off" spellcheck="false">
+  </label>
+
+  <label class="camp">
+    <span>Contrasenya</span>
+    <input type="password" id="inpContrasenya" autocomplete="current-password">
+  </label>
+
+  <div class="error" id="errLogin"></div>
+  <div class="ok" id="okLogin"></div>
+  <button class="btn" id="btnEntrar" type="button">Entra</button>
+  <button class="btn-link" id="btnAnarRecuperar" type="button">Has oblidat la contrasenya?</button>
+</div>
+
+<div class="card" id="vistaRecuperar" style="display:none;">
+  <h1 class="titol">Recuperar contrasenya</h1>
+  <p class="subtitol">T'enviarem un enllaç al teu correu per definir-ne una de nova.</p>
+
+  <label class="camp">
+    <span>Correu electrònic</span>
+    <input type="email" id="inpRecuperarEmail" autocomplete="username"
+           autocapitalize="none" autocorrect="off" spellcheck="false">
+  </label>
+
+  <div class="error" id="errRecuperar"></div>
+  <div class="ok" id="okRecuperar"></div>
+  <button class="btn" id="btnEnviarRecuperar" type="button">Envia l'enllaç</button>
+  <button class="btn-link" id="btnTornarLogin1" type="button">Torna a l'inici de sessió</button>
+</div>
+
+<div class="card" id="vistaNovaContrasenya" style="display:none;">
+  <h1 class="titol">Nova contrasenya</h1>
+  <p class="subtitol">Defineix la teva nova contrasenya per accedir de nou.</p>
+
+  <label class="camp">
+    <span>Contrasenya nova</span>
+    <input type="password" id="inpNovaContrasenya1" autocomplete="new-password">
+  </label>
+  <label class="camp">
+    <span>Repeteix-la</span>
+    <input type="password" id="inpNovaContrasenya2" autocomplete="new-password">
+  </label>
+
+  <div class="error" id="errNovaContrasenya"></div>
+  <button class="btn" id="btnDesarNovaContrasenya" type="button">Desa la contrasenya</button>
+  <button class="btn-link" id="btnTornarLogin2" type="button">Torna a l'inici de sessió</button>
+</div>
