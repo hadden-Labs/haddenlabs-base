@@ -124,6 +124,7 @@ Google propietari de l'script. Ja és al \`.gitignore\`.
 ## Publicar un canvi
 
 \`\`\`bash
+node proves/sincronia.js              # PRIMER: hi ha res a l'editor que no sigui aquí?
 git push                              # versionat
 clasp push                            # a l'editor d'Apps Script
 clasp redeploy <deploymentId> -d "…"  # als usuaris. SEMPRE el mateix.
@@ -131,14 +132,23 @@ clasp redeploy <deploymentId> -d "…"  # als usuaris. SEMPRE el mateix.
 
 Un desplegament nou canvia l'URL i deixa els usuaris amb l'enllaç antic.
 
+\`clasp push\` envia la llista SENCERA de fitxers i substitueix la de l'editor.
+Qui hagi tocat el codi des del navegador es queda sense aquell canvi, sense
+avís, i \`git status\` surt net perquè el canvi mai va arribar a git. Per això
+\`sincronia.js\` va primer i no al final.
+
 ## Comprovacions abans de desplegar
 
 \`\`\`bash
+node proves/sincronia.js                                   # git i l'editor diuen el mateix
 node proves/permisos.js                                    # cap funció sense guarda
 node proves/rendiment.js                                   # anades i tornades
 node proves/previsualitza.js && open proves/previsualitza.html   # als DOS modes
 node ../haddenlabs-estil/verifica.js src/Marca.html src/Styles.html
 \`\`\`
+
+\`sincronia.js\` també es passa en OBRIR la sessió, abans de tocar res. Si surt
+amb \`2\` no ho has comprovat: no és un verd.
 EOF
 
 # Xarxa de seguretat: cap secret de l'entorn pot haver acabat dins del projecte.

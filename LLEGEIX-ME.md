@@ -41,6 +41,38 @@ Si l'script no està lligat a cap full: `configurarFull('<id del full>')` abans.
 
 ---
 
+## Adoptar un script que ja existeix
+
+El camí de dalt dona per fet que git va primer: l'script neix buit amb
+`clasp create` i tot el codi surt d'aquí. Quan l'script **ja existeix i té
+codi** —algú el va escriure a l'editor i ara se li vol posar control de
+versions— la direcció és la contrària i l'ordre importa:
+
+```bash
+mkdir la-meva-app && cd la-meva-app
+clasp clone-script <scriptId> --rootDir src
+git init && git add . && git commit -m "El projecte tal com era a l'editor"
+```
+
+**El primer commit ha de ser una còpia fidel, sense arreglar res.** Si es
+barregen canvis amb la còpia, després no hi ha manera de saber què hi havia
+de debò a l'editor.
+
+Tres coses que no venen soles i s'han d'escriure al `CLAUDE.md`:
+
+- **L'`scriptId`**, perquè `.clasp.json` no es commiteja i sense ell no es pot
+  tornar a lligar el repositori amb l'script.
+- **Qui mana**, git o l'editor, mentre les dues coses estiguin vives. En un
+  projecte adoptat la resposta no és òbvia, i `clasp push` no pregunta.
+- **Què d'aquí no encaixa amb l'esquelet i per què** —que és el que demana
+  `../BestPractises/AGENTS.md` §5. Un projecte adoptat gairebé mai no
+  s'assembla a l'esquelet, i això no és un defecte a corregir.
+
+I copiar-hi `proves/sincronia.js`: és el projecte adoptat qui més el
+necessita, perquè és l'únic on l'editor pot anar per davant de git.
+
+---
+
 ## Què hi ha
 
 | Fitxer | Què resol |
@@ -53,19 +85,35 @@ Si l'script no està lligat a cap full: `configurarFull('<id del full>')` abans.
 | `Index.html` | Carcassa: `app-bar` a dalt, `tabbar` a baix, icones SVG i els helpers `App.*`. |
 | `Marca` · `Base` · `Styles` | Paleta generada · components compartits · el teu CSS. |
 | `Exemple*` | Un mòdul sencer i mínim, per copiar-ne el patró. Esborra'l quan tinguis el teu. |
-| `proves/` | Tres comprovacions que corren aquí, sense desplegar res. |
+| `proves/` | Quatre comprovacions que corren aquí, sense desplegar res. |
 
 ---
 
 ## Les comprovacions, i quan passar-les
 
 ```bash
+node proves/sincronia.js       # què hi ha a l'editor que no és aquí
 node proves/permisos.js        # cap funció pública sense guarda + qui pot cridar què
 node proves/rendiment.js       # anades i tornades i operacions de full
 node proves/previsualitza.js   # l'app sencera en un HTML estàtic
 node ../haddenlabs-estil/verifica.js src/Marca.html src/Styles.html
 ```
 
+- **`sincronia.js`** va primer, i es passa DUES vegades: en obrir la sessió,
+  abans de tocar res, i altra vegada just abans de `clasp push`. Baixa el
+  projecte remot a un directori temporal i el compara amb `src/`; no escriu
+  res.
+
+  El motiu és un fet de la plataforma: **`clasp push` envia la llista sencera
+  de fitxers i substitueix la de l'editor**. Qui hagi tocat el codi des del
+  navegador —que a Apps Script és el camí natural, no una excepció— es queda
+  sense aquell canvi, sense avís i sense que quedi enlloc. I `git status` surt
+  net, perquè el canvi mai va arribar a git: no hi ha cap altra manera
+  d'assabentar-se'n que anar-ho a mirar.
+
+  Sortida: `0` coincideixen · `1` divergeixen · `2` no s'ha pogut comprovar
+  (sense `.clasp.json`, sense credencial o sense xarxa). Un `2` **no és un
+  verd**: vol dir que no ho saps.
 - **`permisos.js`** és la que no et pots saltar. A Apps Script **tota funció
   pública és invocable des del navegador**, es mostri o no el seu botó: aquesta
   prova troba la que s'ha quedat sense `_comprovarAcces_`.
